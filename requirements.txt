@@ -1,0 +1,2 @@
+myvariant==1.0.0
+pandastable==0.13.1
