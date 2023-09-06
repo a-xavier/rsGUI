@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter.ttk import *
 import myvariant
 from pandastable import Table
+import pandas as pd
 
 class TableWindow(tk.Toplevel):
     def __init__(self, parent, data):
@@ -121,7 +122,19 @@ class MainWindow(tk.Tk):
             # PROCESS STUFF
             self.label_info_text.set("Processing rsIDs...")
             mv = myvariant.MyVariantInfo()
+
+
             all_rsids = content.split("\n")
+
+            # SPLIT records based on rsID or c11233G>A
+            rs_rsids = [x for x in all_rsids if x.startswith("rs")]
+            print("RSIDS")
+            print(rs_rsids)
+            chr_rsids = [x for x in all_rsids if x.startswith("chr")]
+            print("Chromosome format ")
+            print(chr_rsids)
+            
+
             if self.hg19_value.get() == 1:
                 assembly = "hg19"
             elif self.hg38_value.get() == 1:
@@ -129,9 +142,27 @@ class MainWindow(tk.Tk):
             else:
                 print("PICNIC")
             print(assembly)
-            res = mv.querymany(all_rsids, scopes='dbsnp.rsid', fields='all', as_dataframe=True, assembly=assembly)
-            res.insert(0, "rsID" ,res.index)
-            print(res)
+
+            if len(rs_rsids) > 0 :
+                res_rsid = mv.querymany(rs_rsids, scopes='dbsnp.rsid', fields='all', as_dataframe=True, assembly=assembly)
+                res_rsid.insert(0, "ID" ,res_rsid.index)
+                print(res_rsid)
+            if len(chr_rsids) > 0 :
+                res_chr = mv.getvariants(chr_rsids, fields='all', as_dataframe=True, assembly=assembly)
+                res_chr.insert(0, "ID" ,res_chr.index)
+                print(res_chr)
+
+            # JOIN RESULTS OR NOT?
+            if res_chr.empty:
+                res = res_rsid
+            elif res_rsid.empty:
+                res = res_chr
+            elif not res_rsid.empty and not res_chr.empty: # JOIN
+                same_columns = [x for x in res_rsid.columns if x in res_chr.columns]
+                res_rsid = res_rsid[same_columns]
+                res_chr = res_chr[same_columns]
+                res = pd.concat([res_rsid, res_chr], axis="index")
+
             # LAUNCH NEW WINDOW
             # DISABLE MAIN WINDOW STUFF
             self.text_box["state"] = tk.DISABLED
